@@ -6,8 +6,6 @@ Felzenszwalb–Huttenlocher initial segmentation, together with a complete
 **object-detection pipeline** (proposals → CNN features → SVM → NMS → COCO evaluation)
 trained and evaluated on a small balloon dataset.
 
-This was developed as the Computer Vision course project (Sheet 5, Winter Term 2025/2026, FAU Erlangen-Nürnberg).
-
 ---
 
 ## Overview
@@ -160,60 +158,33 @@ python Individual_solution.py --cmd eval --data_root data/balloons --split test
 
 ### Results
 
-| Split | MABO | COCO mAP |
-|-------|------|----------|
-| test  | _TODO_ | _TODO_ |
+Evaluated on the **test** split with `scales = 50,100,200,400,800`, `sigma = 0.8`, `min_size = 10`
+(5504 detections scored):
 
-> Fill in your measured numbers here after running `--cmd eval`.
+| Metric | Value |
+|--------|-------|
+| MABO (proposal quality) | **0.720** |
+| COCO mAP @[IoU=0.50:0.95] | **0.032** |
+| AP @[IoU=0.50] | 0.080 |
+| AP @[IoU=0.75] | 0.010 |
 
+Full COCO breakdown:
+
+| Metric | IoU | Area | maxDets | Value |
+|--------|-----|------|---------|-------|
+| AP | 0.50:0.95 | all | 100 | 0.032 |
+| AP | 0.50 | all | 100 | 0.080 |
+| AP | 0.75 | all | 100 | 0.010 |
+| AP | 0.50:0.95 | medium | 100 | 0.059 |
+| AP | 0.50:0.95 | large | 100 | 0.038 |
+| AR | 0.50:0.95 | all | 1 | 0.052 |
+| AR | 0.50:0.95 | all | 10 | 0.184 |
+| AR | 0.50:0.95 | all | 100 | 0.380 |
+| AR | 0.50:0.95 | medium | 100 | 0.321 |
+| AR | 0.50:0.95 | large | 100 | 0.567 |
 ---
 
-## Discussion
 
-> Draft answers to the exercise questions — edit freely or move to a separate writeup.
-
-**Q5.1.1 — Why Selective Search if Felzenszwalb already segments the image?**
-Felzenszwalb produces a single pixel partition at one fixed scale, and objects rarely correspond to
-exactly one segment at one scale. Selective Search hierarchically merges those initial segments to
-yield a diverse, multi-scale *set of box proposals* likely to contain objects — which is what detection
-needs, rather than a single segmentation.
-
-**Q5.1.2 — Proposal-filtering criteria and their effect.**
-`main.py` removes duplicates, regions under 1600 px, and boxes whose aspect ratio falls outside
-`1/1.2…1.2`. This suppresses tiny noisy regions and very elongated boxes, biasing the output toward
-compact, roughly square objects. The aspect-ratio bound is quite strict and would discard legitimately
-elongated objects (e.g. standing figures). Useful additions: non-maximum suppression of near-duplicate
-boxes, a cap on the number of proposals, a border-touching filter, and score-based ranking.
-
-**Q5.1.3 — From arbitrary shapes to rectangles.**
-Each merged region stores its extent, so the box proposal is simply the axis-aligned bounding box of
-the region: top-left `(min_x, min_y)` with `width = max_x − min_x` and `height = max_y − min_y`.
-
-**Q5.1.4 — Effect of `k` (Felzenszwalb scale) and number of proposals.**
-A larger scale produces larger, fewer initial segments and coarser proposals (risking merging distinct
-objects); a smaller scale produces many small segments, more proposals, finer detail, more noise, and
-slower runtime. Increasing the number of proposals generally raises recall / MABO (more chances to
-cover each ground-truth box) but lowers precision and costs more compute, so there is a trade-off.
-
-**Q5.2.1 — How this differs from Uijlings et al.**
-Their pipeline uses SIFT bag-of-words descriptors with a *histogram-intersection-kernel* SVM and an
-explicit difficult-negative retraining loop, with multiple colour spaces and complementary similarity
-strategies for proposal diversification. This implementation uses pretrained **ResNet-18** features +
-geometry with a **linear** SVM, a single similarity combination, a single object class
-(balloon vs. background), and a simplified hard-negative-mining loop.
-
-**Q5.2.2 — Effect of the two thresholds, and why two.**
-`tp` selects clean positives (high overlap) and `tn` selects clean negatives (low overlap); the gap
-between them defines an "ignore" band of ambiguous boxes that partially overlap an object. Training on
-those would blur the decision boundary, so excluding them yields a cleaner classifier. A single
-threshold would force every borderline box into a class, degrading performance. Raising `tp` gives
-fewer but purer positives; lowering `tn` gives purer negatives.
-
-**Q5.2.3 — Increasing training data on the small balloon set.**
-Data augmentation (the code already jitters ground-truth boxes; flips, scale, and colour jitter can be
-added), promoting high-overlap proposals to extra positives, hard-negative mining to make better use of
-abundant background, and transfer learning (already leveraged via the pretrained backbone). Synthetic
-compositing of balloons onto new backgrounds is another option.
 
 ---
 
